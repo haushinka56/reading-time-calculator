@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Reading Time Calculator</title>
+<style>
+  :root {
+    --bg: #faf9f7;
+    --card: #ffffff;
+    --ink: #1c1b1a;
+    --muted: #6b6660;
+    --accent: #b45309;
+    --border: #e7e3dd;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
+    padding: 24px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  h1 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+  .sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0 0 24px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .field { flex: 1; }
+  input {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 15px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .result {
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .result-label {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .result-value {
+    font-size: 20px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .result-value.primary {
+    color: var(--accent);
+    font-size: 26px;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Reading Time Calculator</h1>
+    <p class="sub">Estimate reading time from word count and reading speed.</p>
+
+    <div class="row">
+      <div class="field">
+        <label for="words">Word count</label>
+        <input type="number" id="words" value="10000" min="0" step="1" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label for="wpm">Words / min</label>
+        <input type="number" id="wpm" value="300" min="1" step="1" inputmode="numeric">
+      </div>
+    </div>
+
+    <div class="result">
+      <div class="result-row">
+        <span class="result-label">Minutes</span>
+        <span class="result-value primary" id="minutes">33.3</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Hours</span>
+        <span class="result-value" id="hours">0.56</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">H : M</span>
+        <span class="result-value" id="hm">0h 33m</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const wordsInput = document.getElementById('words');
+    const wpmInput = document.getElementById('wpm');
+    const minutesEl = document.getElementById('minutes');
+    const hoursEl = document.getElementById('hours');
+    const hmEl = document.getElementById('hm');
+
+    function calculate() {
+      const words = parseFloat(wordsInput.value) || 0;
+      const wpm = parseFloat(wpmInput.value) || 1;
+      const minutes = words / wpm;
+      const hours = minutes / 60;
+      const h = Math.floor(hours);
+      const m = Math.round(minutes - h * 60);
+
+      minutesEl.textContent = minutes.toFixed(1);
+      hoursEl.textContent = hours.toFixed(2);
+      hmEl.textContent = `${h}h ${m}m`;
+    }
+
+    wordsInput.addEventListener('input', calculate);
+    wpmInput.addEventListener('input', calculate);
+    calculate();
+  </script>
+</body>
+</html>
