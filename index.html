@@ -8,8 +8,7 @@
   :root {
     --paper: #f0ede4;
     --ink: #111111;
-    --pink: #fe0083;
-    --pink: oklch(0.632812 0.2875 0);
+    --pink: #f70090;
     --line: #111111;
   }
   * { box-sizing: border-box; }
@@ -98,6 +97,22 @@
     margin: 0;
   }
 
+  /* secondary, smaller assumptions row */
+  .assumptions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 3px solid var(--line);
+    background: rgba(0,0,0,0.03);
+    flex: 0 0 auto;
+  }
+  .assumptions .field { padding: 7px clamp(10px, 3vw, 16px); }
+  .assumptions label { font-size: 9.5px; margin-bottom: 3px; }
+  .assumptions input[type="number"] {
+    font-size: clamp(13px, 4vw, 15px);
+    font-weight: 700;
+    color: #555;
+  }
+
   .result {
     padding: clamp(14px, 4vw, 22px);
     border-bottom: 3px solid var(--line);
@@ -117,12 +132,14 @@
     margin-top: 8px;
     display: flex;
     justify-content: center;
-    gap: 16px;
+    flex-wrap: wrap;
+    gap: 14px;
     font-family: "Courier New", Courier, monospace;
     font-size: 11.5px;
     color: #555;
   }
   .sub-results b { color: var(--ink); }
+  .sub-results b.pink { color: var(--pink); }
 
   .history {
     padding: 8px clamp(14px, 4vw, 20px) 10px;
@@ -163,7 +180,7 @@
     margin: 0;
     padding: 0;
     font-family: "Courier New", Courier, monospace;
-    font-size: 11.5px;
+    font-size: 11px;
     overflow-y: auto;
     flex: 1 1 auto;
     min-height: 0;
@@ -184,14 +201,14 @@
   .h-time { font-weight: 700; color: var(--pink); }
 
   @media (max-width: 380px) {
-    .inputs { grid-template-columns: 1fr; }
+    .inputs, .assumptions { grid-template-columns: 1fr; }
     .field + .field { border-left: none; border-top: 3px solid var(--line); }
   }
 
   /* target ~70-75% of viewport height on mobile */
   @media (max-width: 640px) {
     body { align-items: center; padding: 12px; }
-    .sheet { height: 72vh; max-height: 72vh; }
+    .sheet { height: 74vh; max-height: 74vh; }
     .history { max-height: none; }
   }
 </style>
@@ -199,7 +216,7 @@
 <body>
   <div class="sheet">
     <header>
-      <p class="eyebrow">Estimate / Words → Time</p>
+      <p class="eyebrow">Words · Pages → Time</p>
       <h1>Reading <span>Time</span> Calc</h1>
     </header>
 
@@ -209,8 +226,19 @@
         <input type="number" id="words" value="10000" min="0" step="1" inputmode="numeric">
       </div>
       <div class="field">
-        <label for="wpm">WPM</label>
+        <label for="pages">Pages</label>
+        <input type="number" id="pages" value="36" min="0" step="1" inputmode="numeric">
+      </div>
+    </div>
+
+    <div class="assumptions">
+      <div class="field">
+        <label for="wpm">Reading wpm</label>
         <input type="number" id="wpm" value="300" min="1" step="1" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label for="wpp">Words / page</label>
+        <input type="number" id="wpp" value="275" min="1" step="1" inputmode="numeric">
       </div>
     </div>
 
@@ -219,6 +247,7 @@
       <div class="sub-results">
         <span><b id="minutes">33.3</b> min</span>
         <span><b id="hours">0.56</b> hrs</span>
+        <span><b class="pink" id="pagesOut">36</b> pages</span>
       </div>
     </div>
 
@@ -233,10 +262,13 @@
 
   <script>
     const wordsInput = document.getElementById('words');
+    const pagesInput = document.getElementById('pages');
     const wpmInput = document.getElementById('wpm');
+    const wppInput = document.getElementById('wpp');
     const minutesEl = document.getElementById('minutes');
     const hoursEl = document.getElementById('hours');
     const hmEl = document.getElementById('hm');
+    const pagesOutEl = document.getElementById('pagesOut');
     const historyList = document.getElementById('historyList');
     const clearBtn = document.getElementById('clearBtn');
 
@@ -244,6 +276,7 @@
     const MAX_HISTORY = 5;
     let debounceTimer = null;
     let userInteracted = false; // don't log the default values on page load
+    let lastEdited = 'words'; // tracks which field drives the calculation: 'words' or 'pages'
 
     function loadHistory() {
       try {
@@ -269,14 +302,14 @@
       }
       list.forEach(entry => {
         const li = document.createElement('li');
-        li.innerHTML = `<span>${entry.words.toLocaleString()}w @ ${entry.wpm}wpm</span><span class="h-time">${entry.hm}</span>`;
+        li.innerHTML = `<span>${entry.words.toLocaleString()}w · ${entry.pages}p @ ${entry.wpm}wpm</span><span class="h-time">${entry.hm}</span>`;
         historyList.appendChild(li);
       });
     }
 
     function addToHistory(entry) {
       let list = loadHistory();
-      if (list[0] && list[0].words === entry.words && list[0].wpm === entry.wpm) return;
+      if (list[0] && list[0].words === entry.words && list[0].wpm === entry.wpm && list[0].pages === entry.pages) return;
       list.unshift(entry);
       list = list.slice(0, MAX_HISTORY);
       saveHistory(list);
@@ -284,8 +317,20 @@
     }
 
     function calculate() {
-      const words = parseFloat(wordsInput.value) || 0;
       const wpm = parseFloat(wpmInput.value) || 1;
+      const wpp = parseFloat(wppInput.value) || 1;
+
+      let words, pages;
+      if (lastEdited === 'pages') {
+        pages = parseFloat(pagesInput.value) || 0;
+        words = Math.round(pages * wpp);
+        wordsInput.value = words;
+      } else {
+        words = parseFloat(wordsInput.value) || 0;
+        pages = Math.round(words / wpp);
+        pagesInput.value = pages;
+      }
+
       const minutes = words / wpm;
       const hours = minutes / 60;
       const h = Math.floor(hours);
@@ -295,19 +340,21 @@
       minutesEl.textContent = minutes.toFixed(1);
       hoursEl.textContent = hours.toFixed(2);
       hmEl.textContent = hm;
+      pagesOutEl.textContent = pages.toLocaleString();
 
       if (!userInteracted) return; // skip logging on initial page render
 
       clearTimeout(debounceTimer);
       if (words > 0) {
         debounceTimer = setTimeout(() => {
-          addToHistory({ words, wpm, hm });
+          addToHistory({ words, pages, wpm, hm });
         }, 800);
       }
     }
 
-    function markInteracted() {
+    function markInteracted(source) {
       userInteracted = true;
+      lastEdited = source;
       calculate();
     }
 
@@ -316,8 +363,10 @@
       renderHistory();
     });
 
-    wordsInput.addEventListener('input', markInteracted);
-    wpmInput.addEventListener('input', markInteracted);
+    wordsInput.addEventListener('input', () => markInteracted('words'));
+    pagesInput.addEventListener('input', () => markInteracted('pages'));
+    wpmInput.addEventListener('input', () => markInteracted(lastEdited));
+    wppInput.addEventListener('input', () => markInteracted(lastEdited));
 
     renderHistory();
     calculate(); // initial render only, never logged
